@@ -1,5 +1,5 @@
 {
   "name": "Portal Hospitalario MediConnect",
-  "description": "Un sistema integral de gestión hospitalaria para que los pacientes reserven citas especializadas y los administradores gestionen los horarios de los médicos, con un recomendador de especialidades impulsado por IA.",
+  "description": "Un sistema integral de gestión hospitalaria que permite a los pacientes reservar citas con especialistas y a los administradores gestionar eficientemente los horarios y la disponibilidad de los médicos.",
   "requestFramePermissions": []
 }
