@@ -1,5 +1,5 @@
 
-import { Specialty, Doctor } from './types';
+import { Specialty, Doctor } from './types.ts';
 
 export const SPECIALTIES: Specialty[] = [
   'Medicina General',

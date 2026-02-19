@@ -1,16 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserRole, TimeSlot, Appointment, Specialty } from './types';
-import Login from './components/Login';
-import AdminDashboard from './components/AdminDashboard';
-import PatientDashboard from './components/PatientDashboard';
+import { UserRole, TimeSlot, Appointment, Specialty } from './types.ts';
+import Login from './components/Login.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
+import PatientDashboard from './components/PatientDashboard.tsx';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // Inicializar algunos turnos de prueba
   useEffect(() => {
     const initialSlots: TimeSlot[] = [
       { id: 's1', doctorId: 'dr1', date: '2025-05-20', time: '09:00 AM', isBooked: false },
@@ -44,19 +43,15 @@ const App: React.FC = () => {
   };
 
   const bookAppointment = (slotId: string, doctorId: string, specialty: Specialty): boolean => {
-    // Validación estricta: Solo una cita por especialidad
     const alreadyHasOne = appointments.some(app => app.specialty === specialty);
     
     if (alreadyHasOne) {
-      alert(`Lo sentimos, ya tienes una cita programada en la especialidad de ${specialty}. Solo se permite una cita activa por especialidad.`);
+      alert(`Lo sentimos, ya tienes una cita programada en la especialidad de ${specialty}.`);
       return false;
     }
 
     const slot = slots.find(s => s.id === slotId);
-    if (!slot) {
-      alert("El horario seleccionado ya no está disponible.");
-      return false;
-    }
+    if (!slot) return false;
 
     const newAppointment: Appointment = {
       id: Math.random().toString(36).substr(2, 9),
@@ -71,7 +66,7 @@ const App: React.FC = () => {
     setAppointments(prev => [...prev, newAppointment]);
     setSlots(prev => prev.map(s => s.id === slotId ? { ...s, isBooked: true } : s));
     
-    alert('¡Cita reservada con éxito! Podrás ver los detalles en tu lista de citas.');
+    alert('¡Cita reservada con éxito!');
     return true;
   };
 
@@ -79,7 +74,7 @@ const App: React.FC = () => {
     const appointment = appointments.find(app => app.id === appointmentId);
     if (!appointment) return;
 
-    if (confirm('¿Estás seguro de que deseas cancelar esta cita? El horario volverá a estar disponible para otros pacientes.')) {
+    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       setSlots(prev => prev.map(s => s.id === appointment.slotId ? { ...s, isBooked: false } : s));
     }
@@ -91,7 +86,6 @@ const App: React.FC = () => {
         <Login onLogin={handleLogin} />
       ) : (
         <div className="flex flex-col min-h-screen">
-          {/* Navegación */}
           <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16 items-center">
@@ -102,9 +96,8 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold text-slate-800">
-                      {role === UserRole.ADMIN ? 'Administrador del Sistema' : 'Usuario Paciente'}
+                      {role === UserRole.ADMIN ? 'Administrador' : 'Paciente'}
                     </p>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest">{role}</p>
                   </div>
                   <button 
                     onClick={handleLogout}
@@ -133,12 +126,6 @@ const App: React.FC = () => {
               />
             )}
           </main>
-
-          <footer className="bg-white border-t border-slate-200 py-6">
-            <div className="max-w-7xl mx-auto px-4 text-center">
-              <p className="text-sm text-slate-400">© 2025 Sistema de Gestión Hospitalaria MediConnect. Todos los derechos reservados.</p>
-            </div>
-          </footer>
         </div>
       )}
     </div>
