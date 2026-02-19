@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Specialty, Doctor, TimeSlot, Appointment } from '../types';
 import { SPECIALTIES, MOCK_DOCTORS } from '../constants';
-import { getSpecialtyRecommendation } from '../services/geminiService';
 
 interface PatientDashboardProps {
   slots: TimeSlot[];
@@ -15,24 +14,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   const [activeTab, setActiveTab] = useState<'view' | 'book'>('view');
   const [selectedSpecialty, setSelectedSpecialty] = useState<Specialty | ''>('');
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
-  const [symptoms, setSymptoms] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState<{ specialty: Specialty, reason: string } | null>(null);
 
   const filteredDoctors = MOCK_DOCTORS.filter(dr => dr.specialty === selectedSpecialty);
   const availableSlots = slots.filter(s => s.doctorId === selectedDoctorId && !s.isBooked);
 
   const hasAppointmentInSpecialty = selectedSpecialty ? appointments.some(app => app.specialty === selectedSpecialty) : false;
-
-  const handleAiRecommend = async () => {
-    if (!symptoms.trim()) return;
-    setAiLoading(true);
-    const rec = await getSpecialtyRecommendation(symptoms);
-    setAiAdvice(rec);
-    setSelectedSpecialty(rec.specialty);
-    setSelectedDoctorId(''); // Reset doctor when specialty changes via AI
-    setAiLoading(false);
-  };
 
   const handleBooking = (slotId: string, doctorId: string) => {
     if (!selectedSpecialty) return;
@@ -44,8 +30,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
       // Resetear selecciones para la próxima vez
       setSelectedSpecialty('');
       setSelectedDoctorId('');
-      setAiAdvice(null);
-      setSymptoms('');
     }
   };
 
@@ -115,48 +99,26 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
 
       {activeTab === 'book' && (
         <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-          <h3 className="text-2xl font-bold text-slate-800 mb-6">Programar una Visita</h3>
+          <h3 className="text-2xl font-bold text-slate-800 mb-6 text-center">Programar una Visita</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-6">
-              {/* Sección de ayuda de IA */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-indigo-100">
-                <h4 className="font-semibold text-indigo-900 mb-2 flex items-center gap-2">
-                  <span className="text-xl">✨</span> Asesor de Especialidades IA
-                </h4>
-                <p className="text-xs text-indigo-700 mb-3">Describe tus síntomas para obtener una recomendación.</p>
-                <textarea 
-                  value={symptoms}
-                  onChange={(e) => setSymptoms(e.target.value)}
-                  placeholder="ej. Siento opresión en el pecho después de subir escaleras..."
-                  className="w-full p-3 text-sm rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none h-24 mb-3"
-                />
-                <button 
-                  onClick={handleAiRecommend}
-                  disabled={aiLoading}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md"
-                >
-                  {aiLoading ? 'Analizando...' : 'Obtener Recomendación'}
-                </button>
-                {aiAdvice && (
-                  <div className="mt-3 p-3 bg-white rounded-xl border border-indigo-100 animate-fade-in">
-                    <p className="text-xs font-bold text-indigo-600">Recomendado: {aiAdvice.specialty}</p>
-                    <p className="text-[11px] text-slate-600 mt-1">{aiAdvice.reason}</p>
-                  </div>
-                )}
-              </div>
-
               {/* Selección de Especialidad */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Seleccionar Especialidad</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-3">1. Seleccionar Especialidad</label>
+                <div className="grid grid-cols-1 gap-2">
                   {SPECIALTIES.map(s => (
                     <button
                       key={s}
                       onClick={() => { setSelectedSpecialty(s); setSelectedDoctorId(''); }}
-                      className={`p-3 text-sm rounded-xl border transition-all text-left ${selectedSpecialty === s ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-400'}`}
+                      className={`p-4 text-sm font-medium rounded-xl border transition-all text-left flex items-center justify-between ${selectedSpecialty === s ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-400'}`}
                     >
-                      {s}
+                      <span>{s}</span>
+                      {selectedSpecialty === s && (
+                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -168,20 +130,20 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">2. Elegir Médico</label>
                 {!selectedSpecialty ? (
-                  <div className="py-4 text-center text-slate-400 text-sm italic">Por favor selecciona una especialidad primero</div>
+                  <div className="py-8 text-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-2xl italic">Por favor selecciona una especialidad primero</div>
                 ) : hasAppointmentInSpecialty ? (
                   <div className="p-4 bg-amber-50 text-amber-800 rounded-xl text-xs border border-amber-200 animate-pulse">
                     ⚠️ Ya tienes una cita activa en <strong>{selectedSpecialty}</strong>. Para agendar una nueva en esta especialidad, primero debes cancelar la anterior.
                   </div>
                 ) : filteredDoctors.length === 0 ? (
-                  <div className="py-4 text-center text-slate-400 text-sm italic">No se encontraron médicos para esta especialidad</div>
+                  <div className="py-8 text-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-2xl italic">No se encontraron médicos para esta especialidad</div>
                 ) : (
                   <div className="space-y-2">
                     {filteredDoctors.map(dr => (
                       <button
                         key={dr.id}
                         onClick={() => setSelectedDoctorId(dr.id)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedDoctorId === dr.id ? 'bg-indigo-50 border-indigo-600' : 'bg-white border-slate-100 hover:border-indigo-200'}`}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedDoctorId === dr.id ? 'bg-indigo-50 border-indigo-600 shadow-sm' : 'bg-white border-slate-100 hover:border-indigo-200'}`}
                       >
                         <img src={dr.image} className="w-10 h-10 rounded-full border border-slate-200" alt={dr.name} />
                         <span className="text-sm font-medium text-slate-800">{dr.name}</span>
@@ -195,9 +157,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">3. Elegir Horario</label>
                 {!selectedDoctorId ? (
-                  <div className="py-4 text-center text-slate-400 text-sm italic">Selecciona un médico para ver su disponibilidad</div>
+                  <div className="py-8 text-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-2xl italic">Selecciona un médico para ver su disponibilidad</div>
                 ) : availableSlots.length === 0 ? (
-                  <div className="py-4 text-center text-slate-400 text-sm italic">No hay turnos disponibles actualmente para este médico</div>
+                  <div className="py-8 text-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-2xl italic">No hay turnos disponibles actualmente para este médico</div>
                 ) : (
                   <div className="grid grid-cols-1 gap-2">
                     {availableSlots.map(slot => (
