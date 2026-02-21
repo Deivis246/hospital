@@ -33,8 +33,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   return (
     <div className="space-y-6">
       <div className="flex space-x-4 border-b border-slate-200">
-        <button onClick={() => setActiveTab('view')} className={`pb-4 px-2 font-semibold ${activeTab === 'view' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>Mis Citas</button>
-        <button onClick={() => setActiveTab('book')} className={`pb-4 px-2 font-semibold ${activeTab === 'book' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>Reservar</button>
+        <button onClick={() => setActiveTab('view')} className={`pb-4 px-2 font-semibold ${activeTab === 'view' ? 'text-[#0056b3] border-b-2 border-[#0056b3]' : 'text-slate-400'}`}>Mis Citas</button>
+        <button onClick={() => setActiveTab('book')} className={`pb-4 px-2 font-semibold ${activeTab === 'book' ? 'text-[#0056b3] border-b-2 border-[#0056b3]' : 'text-slate-400'}`}>Reservar</button>
       </div>
 
       {activeTab === 'view' && (
@@ -45,7 +45,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             appointments.map(app => (
               <div key={app.id} className="bg-white p-6 rounded-2xl border border-slate-200">
                 <h4 className="font-bold text-slate-800">{MOCK_DOCTORS.find(d => d.id === app.doctorId)?.name}</h4>
-                <p className="text-sm text-indigo-600">{app.specialty}</p>
+                <p className="text-sm text-[#0056b3]">{app.specialty}</p>
                 <div className="mt-4 text-sm text-slate-600">{app.date} a las {app.time}</div>
                 <button onClick={() => onCancel(app.id)} className="mt-4 w-full py-2 text-red-500 bg-red-50 rounded-lg font-semibold">Cancelar</button>
               </div>
@@ -56,13 +56,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
 
       {activeTab === 'book' && (
         <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border">
-          <h3 className="text-2xl font-bold text-slate-800 mb-6 text-center">Nueva Cita</h3>
+                  <h3 className="text-2xl font-bold text-slate-800 mb-6 text-center">Nueva Cita</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div>
               <label className="block text-sm font-semibold mb-3">1. Especialidad</label>
               <div className="space-y-2">
                 {SPECIALTIES.map(s => (
-                  <button key={s} onClick={() => { setSelectedSpecialty(s); setSelectedDoctorId(''); }} className={`w-full p-4 text-left rounded-xl border ${selectedSpecialty === s ? 'bg-indigo-600 text-white' : 'bg-white'}`}>{s}</button>
+                  <button key={s} onClick={() => { setSelectedSpecialty(s); setSelectedDoctorId(''); }} className={`w-full p-4 text-left rounded-xl border ${selectedSpecialty === s ? 'bg-[#0056b3] text-white' : 'bg-white'}`}>{s}</button>
                 ))}
               </div>
             </div>
@@ -76,14 +76,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                 <div className="space-y-4">
                   {filteredDoctors.map(dr => (
                     <div key={dr.id} className="space-y-2">
-                      <button onClick={() => setSelectedDoctorId(dr.id)} className={`w-full p-3 border rounded-xl flex items-center gap-3 ${selectedDoctorId === dr.id ? 'border-indigo-600 bg-indigo-50' : ''}`}>
+                      <button onClick={() => setSelectedDoctorId(dr.id)} className={`w-full p-3 border rounded-xl flex items-center gap-3 ${selectedDoctorId === dr.id ? 'border-[#0056b3] bg-blue-50' : ''}`}>
                         <img src={dr.image} className="w-8 h-8 rounded-full" />
                         <span className="text-sm font-medium">{dr.name}</span>
                       </button>
                       {selectedDoctorId === dr.id && (
                         <div className="pl-4 space-y-1">
                           {availableSlots.map(slot => (
-                            <button key={slot.id} onClick={() => handleBooking(slot.id, slot.doctorId)} className="w-full p-2 text-xs bg-white border rounded hover:bg-indigo-600 hover:text-white transition-colors">{slot.date} - {slot.time}</button>
+                            <button key={slot.id} onClick={() => handleBooking(slot.id, slot.doctorId)} className="w-full p-2 text-xs bg-white border rounded hover:bg-[#0056b3] hover:text-white transition-colors">{slot.date} - {slot.time}</button>
                           ))}
                         </div>
                       )}

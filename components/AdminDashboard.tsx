@@ -36,7 +36,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ slots, onAddSlot, onDel
               <select 
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0056b3] outline-none"
               >
                 {MOCK_DOCTORS.map(dr => (
                   <option key={dr.id} value={dr.id}>{dr.name} ({dr.specialty})</option>
@@ -51,7 +51,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ slots, onAddSlot, onDel
               <label className="block text-sm font-medium text-slate-600 mb-1">Hora</label>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full p-2.5 border rounded-lg" required />
             </div>
-            <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold">Añadir Turno</button>
+            <button type="submit" className="w-full py-3 bg-[#0056b3] text-white rounded-lg font-semibold">Añadir Turno</button>
           </form>
         </div>
 
