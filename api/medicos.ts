@@ -1,7 +1,15 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
 import { query } from './_db';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -10,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     let sql = 'SELECT medi_id as id, medi_nombre as nombre, espe_id as especialidad_id FROM medico';
-    const params: any[] = [];
+    const params = [];
 
     if (espe_id) {
       sql += ' WHERE espe_id = ?';
@@ -19,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const medicos = await query(sql, params);
     return res.status(200).json(medicos);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching medicos:', error);
     return res.status(500).json({ 
       error: 'Error al obtener médicos', 
