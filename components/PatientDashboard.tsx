@@ -16,25 +16,33 @@ import {
   parseISO
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Loader2, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface PatientDashboardProps {
   slots: any[];
   appointments: Appointment[];
-  onBook: (slotId: string, medico_id: string, especialidad_id: number) => boolean;
+  onBook: (slotId: string, medico_id: string, especialidad_id: number) => { success: boolean; message?: string };
   onCancel: (appointmentId: string) => void;
   onDoctorSelect: (medico_id: string) => void;
   loading?: boolean;
+  currentUser?: any;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel, onDoctorSelect, loading }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel, onDoctorSelect, loading, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'book'>('view');
   const [selectedEspecialidadId, setSelectedEspecialidadId] = useState<number | null>(null);
   const [selectedMedicoId, setSelectedMedicoId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [errorModal, setErrorModal] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
+  const [specialtySearch, setSpecialtySearch] = useState('');
   
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
   const [medicos, setMedicos] = useState<Medico[]>([]);
@@ -43,6 +51,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   useEffect(() => {
     setEspecialidades(ESPECIALIDADES);
   }, []);
+
+  const filteredEspecialidades = especialidades.filter(e => 
+    e.nombre.toLowerCase().includes(specialtySearch.toLowerCase())
+  );
 
   useEffect(() => {
     if (selectedEspecialidadId) {
@@ -81,10 +93,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
 
   const handleBooking = () => {
     if (selectedEspecialidadId === null || !selectedSlot) return;
-    const success = onBook(selectedSlot.id, selectedSlot.doctorId, selectedEspecialidadId);
-    if (success) {
+    const result = onBook(selectedSlot.id, selectedSlot.doctorId, selectedEspecialidadId);
+    
+    if (result.success) {
       setActiveTab('view');
       resetBooking();
+      alert('¡Cita reservada con éxito!');
+    } else {
+      setShowConfirmation(false);
+      setErrorModal({ show: true, message: result.message || 'Error al reservar la cita.' });
     }
   };
 
@@ -203,6 +220,84 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
     }
   };
 
+  const generatePDF = (appointment: Appointment) => {
+    const doc = new jsPDF();
+    // Use MOCK_MEDICOS directly to ensure we find the doctor regardless of current state
+    const medico = MOCK_MEDICOS.find(d => d.id === appointment.medico_id);
+    const especialidad = ESPECIALIDADES.find(e => e.id === appointment.especialidad_id);
+    const exams = especialidad && SPECIALTY_EXAMS[especialidad.nombre] ? SPECIALTY_EXAMS[especialidad.nombre] : ['Ninguno'];
+
+    doc.setFontSize(20);
+    doc.setTextColor(0, 86, 179); // #0056b3
+    doc.text('Hospital General Docente de Calderón', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Comprobante de Cita Médica', 105, 30, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 20, 45);
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 50, 190, 50);
+
+    let y = 60;
+    const lineHeight = 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Información del Paciente:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(currentUser?.nombre || 'N/A', 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Especialidad:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(especialidad?.nombre || 'N/A', 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Médico:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(medico?.nombre || 'N/A', 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Consultorio:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(medico?.consultorio || 'Por asignar', 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha de Agendamiento:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(appointment.bookingDate ? new Date(appointment.bookingDate).toLocaleDateString() : 'N/A', 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha de Cita:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(parseISO(appointment.date), 'dd/MM/yyyy', { locale: es }), 80, y);
+    y += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hora de Cita:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(appointment.time, 80, y);
+    y += lineHeight * 1.5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Exámenes Requeridos:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+    exams.forEach(exam => {
+      doc.text(`- ${exam}`, 25, y);
+      y += lineHeight;
+    });
+
+    doc.save(`cita_${appointment.date}_${appointment.time.replace(':', '')}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex space-x-4 border-b border-slate-200">
@@ -239,7 +334,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                     <span className="text-sm font-medium">{app.time}</span>
                   </div>
                 </div>
-                <button onClick={() => handleCancelClick(app)} className="mt-6 w-full py-2.5 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl font-bold transition-colors">Cancelar Cita</button>
+                <div className="mt-6 flex gap-3">
+                  <button 
+                    onClick={() => generatePDF(app)}
+                    className="flex-1 py-2.5 text-[#0056b3] bg-blue-50 hover:bg-blue-100 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download size={18} />
+                    <span className="text-sm">Descargar</span>
+                  </button>
+                  <button onClick={() => handleCancelClick(app)} className="flex-1 py-2.5 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl font-bold transition-colors text-sm">Cancelar</button>
+                </div>
               </div>
             ))
           )}
@@ -296,8 +400,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             {/* Step 1: Specialty */}
             <div className="lg:col-span-3 space-y-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">1. Especialidad</h3>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar especialidad..."
+                  value={specialtySearch}
+                  onChange={(e) => setSpecialtySearch(e.target.value)}
+                  className="w-full p-3 mb-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0056b3] outline-none text-sm"
+                />
+              </div>
               <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {especialidades.map(e => (
+                {filteredEspecialidades.map(e => (
                   <button 
                     key={e.id} 
                     onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); }} 
@@ -306,6 +419,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                     {e.nombre}
                   </button>
                 ))}
+                {filteredEspecialidades.length === 0 && (
+                  <p className="text-center text-gray-400 text-sm py-4">No se encontraron especialidades.</p>
+                )}
               </div>
             </div>
 
@@ -488,6 +604,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                     <p className="text-xs text-gray-400 uppercase font-bold tracking-widest">Hora</p>
                     <p className="font-bold text-gray-800">{selectedSlot.time}</p>
                   </div>
+                  <div className="col-span-2 space-y-1 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-400 uppercase font-bold tracking-widest">Consultorio Asignado</p>
+                    <p className="font-bold text-[#0056b3] text-lg">{selectedMedico.consultorio || 'Por asignar'}</p>
+                    <p className="text-xs text-gray-500">Este consultorio se le ha asignado automáticamente.</p>
+                  </div>
                 </div>
               </div>
               
@@ -505,6 +626,37 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                   Confirmar Cita
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Error Modal */}
+      {errorModal.show && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-amber-500 p-6 text-white text-center relative">
+              <button 
+                onClick={() => setErrorModal({ show: false, message: '' })}
+                className="absolute right-4 top-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-2xl font-bold">Aviso Importante</h3>
+            </div>
+            <div className="p-8 space-y-6">
+              <p className="text-gray-600 text-center text-lg whitespace-pre-line">
+                {errorModal.message}
+              </p>
+              
+              <button 
+                onClick={() => setErrorModal({ show: false, message: '' })}
+                className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-lg transition-all"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>

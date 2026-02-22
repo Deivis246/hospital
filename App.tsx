@@ -33,22 +33,29 @@ const App: React.FC = () => {
       const doctorAgendas = MOCK_AGENDAS.filter(a => a.medico_id === medico_id);
       
       const generatedSlots: any[] = [];
+      
+      // Calculate start date (30 days from today)
+      const today = new Date();
+      const minDate = new Date(today);
+      minDate.setDate(today.getDate() + 30);
+      minDate.setHours(0, 0, 0, 0);
+
+      // Calculate max date (e.g., 60 days from minDate)
+      const maxDate = new Date(minDate);
+      maxDate.setDate(minDate.getDate() + 60);
+
       doctorAgendas.forEach((agenda) => {
         const startDate = new Date(agenda.fecha_inicio);
         const endDate = new Date(agenda.fecha_fin);
-        const demoEndDate = new Date();
-        demoEndDate.setDate(demoEndDate.getDate() + 30);
         
-        let current = new Date();
+        let current = new Date(minDate);
         if (current < startDate) current = new Date(startDate);
         
-        while (current <= endDate && current <= demoEndDate) {
-          const dayOfWeek = (current.getDay() + 6) % 7; // Adjust if necessary, 0=Monday in some systems, but Date.getDay() 0=Sunday.
-          // In constants.ts, let's assume 0=Monday to match the previous logic if it was using that.
-          // Wait, previous logic: const dayOfWeek = (current.getDay() + 6) % 7;
-          // If current.getDay() is 0 (Sunday), (0+6)%7 = 6.
-          // If current.getDay() is 1 (Monday), (1+6)%7 = 0.
-          // So 0=Monday, 6=Sunday.
+        // Ensure we don't go beyond the agenda end date or our max display date
+        const effectiveEndDate = endDate < maxDate ? endDate : maxDate;
+        
+        while (current <= effectiveEndDate) {
+          const dayOfWeek = (current.getDay() + 6) % 7; 
           
           const dayJornadas = MOCK_JORNADAS.filter(j => j.agenda_id === agenda.id && j.dia_semana === dayOfWeek);
           
@@ -67,7 +74,7 @@ const App: React.FC = () => {
                 id: `${medico_id}-${slotTime.getTime()}`,
                 doctorId: medico_id,
                 date: slotTime.toISOString().split('T')[0],
-                time: slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                time: slotTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
                 isBooked: false
               });
               slotTime.setMinutes(slotTime.getMinutes() + agenda.duracion_cita);
@@ -97,31 +104,62 @@ const App: React.FC = () => {
     setSlots(prev => prev.filter(s => s.id !== id));
   };
 
-  const bookAppointment = (slotId: string, medico_id: string, especialidad_id: number): boolean => {
-    const alreadyHasOne = appointments.some(app => app.especialidad_id === especialidad_id);
+  const parseTimeMinutes = (timeStr: string): number => {
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (hours === 12) hours = 0;
+    if (modifier === 'PM') hours += 12;
+    return hours * 60 + minutes;
+  };
+
+  const bookAppointment = (slotId: string, medico_id: string, especialidad_id: number): { success: boolean; message?: string } => {
+    const currentUserId = currentUser?.id || 'p1';
+    
+    // 1. Check same specialty
+    const alreadyHasOne = appointments.some(app => 
+      app.patientId === currentUserId && 
+      app.especialidad_id === especialidad_id
+    );
     
     if (alreadyHasOne) {
-      alert(`Lo sentimos, ya tienes una cita programada en esta especialidad.`);
-      return false;
+      return { success: false, message: 'Lo sentimos, ya tienes una cita programada en esta especialidad.' };
     }
 
     const slot = slots.find(s => s.id === slotId);
-    if (!slot) return false;
+    if (!slot) return { success: false, message: 'Horario no encontrado.' };
+
+    // 2. Check time conflict (2 hours gap)
+    const slotMinutes = parseTimeMinutes(slot.time);
+    const hasTimeConflict = appointments.some(app => {
+      if (app.patientId !== currentUserId) return false;
+      if (app.date !== slot.date) return false;
+
+      const appMinutes = parseTimeMinutes(app.time);
+      const diff = Math.abs(slotMinutes - appMinutes);
+      return diff < 120; // Less than 120 minutes (2 hours)
+    });
+
+    if (hasTimeConflict) {
+      return { 
+        success: false, 
+        message: 'No se puede agendar la cita.\n\nDebe existir un intervalo de al menos 2 horas antes o después de su cita existente para evitar conflictos de horario.' 
+      };
+    }
 
     const newAppointment: Appointment = {
       id: Math.random().toString(36).substr(2, 9),
-      patientId: currentUser?.id || 'p1',
+      patientId: currentUserId,
       medico_id,
       especialidad_id,
       date: slot.date,
-      time: slot.time
+      time: slot.time,
+      bookingDate: new Date().toISOString() // Add booking date
     };
 
     setAppointments(prev => [...prev, newAppointment]);
     setSlots(prev => prev.map(s => s.id === slotId ? { ...s, isBooked: true } : s));
     
-    alert('¡Cita reservada con éxito!');
-    return true;
+    return { success: true };
   };
 
   const cancelAppointment = (appointmentId: string) => {
@@ -177,6 +215,7 @@ const App: React.FC = () => {
                 onCancel={cancelAppointment}
                 onDoctorSelect={fetchSlotsForDoctor}
                 loading={loading}
+                currentUser={currentUser}
               />
             )}
           </main>

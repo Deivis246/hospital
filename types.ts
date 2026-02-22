@@ -14,6 +14,7 @@ export interface Medico {
   nombre: string;
   especialidad_id: number;
   image?: string; // Mantener para UI
+  consultorio?: string;
 }
 
 export interface Persona {
@@ -46,6 +47,7 @@ export interface Appointment {
   especialidad_id: number;
   date: string;
   time: string;
+  bookingDate?: string;
   // Estos campos se derivan para la UI pero se guardan así
 }
 
