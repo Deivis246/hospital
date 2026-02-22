@@ -2,52 +2,50 @@ import mysql from 'mysql2/promise';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'mysql://zEc6ssgtcsBqAfJ.root:vmuf2WLzLFAimWe0@gateway01.us-east-1.prod.aws.tidbcloud.com:4000/test';
 
-// Parse connection URL for mysql2
-function parseConnectionUrl(url: string) {
-  const match = url.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-  if (!match) throw new Error('Invalid DATABASE_URL format');
-  
-  return {
-    user: match[1],
-    password: match[2],
-    host: match[3],
-    port: parseInt(match[4]),
-    database: match[5],
-    ssl: { rejectUnauthorized: false }
-  };
-}
-
-let connection: mysql.Connection;
-
-async function getConnection() {
-  if (connection) return connection;
-
-  console.log('Initializing MySQL connection...');
-  try {
-    const config = parseConnectionUrl(DATABASE_URL);
-    connection = await mysql.createConnection(config);
-    return connection;
-  } catch (err) {
-    console.error('Error creating MySQL connection:', err);
-    throw err;
-  }
-}
-
 export async function query<T>(sql: string, params?: any[]): Promise<T> {
+  let connection;
+  
   try {
-    const conn = await getConnection();
-    const [results] = await conn.execute(sql, params);
+    console.log('Creating new database connection...');
+    
+    // Parse connection URL and add SSL for TiDB Cloud
+    const url = new URL(DATABASE_URL);
+    const config = {
+      host: url.hostname,
+      port: parseInt(url.port) || 4000,
+      user: url.username,
+      password: url.password,
+      database: url.pathname.substring(1), // Remove leading slash
+      ssl: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      }
+    };
+    
+    connection = await mysql.createConnection(config);
+
+    console.log('Executing query:', sql);
+    const [results] = await connection.execute(sql, params);
+    console.log('Query executed successfully');
+    
     return results as T;
   } catch (err: any) {
-    console.error('Database query error:', err.message);
+    console.error('Database query error:', {
+      message: err.message,
+      code: err.code,
+      errno: err.errno,
+      sqlState: err.sqlState
+    });
     throw err;
+  } finally {
+    // Always close connection in serverless
+    if (connection) {
+      try {
+        await connection.end();
+        console.log('Database connection closed');
+      } catch (closeErr) {
+        console.error('Error closing connection:', closeErr);
+      }
+    }
   }
 }
-
-// Close connection when process ends
-process.on('SIGINT', async () => {
-  if (connection) {
-    await connection.end();
-  }
-  process.exit(0);
-});

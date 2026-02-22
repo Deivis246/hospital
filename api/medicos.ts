@@ -17,14 +17,13 @@ export default async function handler(req, res) {
   const { espe_id } = req.query;
 
   try {
-    // Usando la tabla medico que existe en la base de datos
+    // Usando la tabla medico con la relación correcta por CI
     let sql = `
       SELECT m.medi_id as id, 
              m.medi_nombre as nombre, 
              m.espe_id as especialidad_id,
-             p.pers_ci as cedula
+             m.medi_ci as cedula
       FROM medico m
-      LEFT JOIN persona p ON m.pers_id = p.pers_id
     `;
     const params = [];
 
