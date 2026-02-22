@@ -15,7 +15,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const especialidades = await query('SELECT espe_id as id, espe_nombre as nombre FROM especialidad ORDER BY espe_nombre ASC');
+    // Usando la tabla especialidad correcta del sistema
+    const especialidades = await query(`
+      SELECT espe_id as id, espe_nombre as nombre 
+      FROM especialidad 
+      ORDER BY espe_nombre ASC
+    `);
     return res.status(200).json(especialidades);
   } catch (error) {
     console.error('Error fetching especialidades:', error);

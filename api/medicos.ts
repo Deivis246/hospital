@@ -17,13 +17,23 @@ export default async function handler(req, res) {
   const { espe_id } = req.query;
 
   try {
-    let sql = 'SELECT medi_id as id, medi_nombre as nombre, espe_id as especialidad_id FROM medico';
+    // Usando la tabla medico que existe en la base de datos
+    let sql = `
+      SELECT m.medi_id as id, 
+             m.medi_nombre as nombre, 
+             m.espe_id as especialidad_id,
+             p.pers_ci as cedula
+      FROM medico m
+      LEFT JOIN persona p ON m.pers_id = p.pers_id
+    `;
     const params = [];
 
     if (espe_id) {
-      sql += ' WHERE espe_id = ?';
+      sql += ` WHERE m.espe_id = ?`;
       params.push(espe_id);
     }
+
+    sql += ' ORDER BY m.medi_nombre ASC';
 
     const medicos = await query(sql, params);
     return res.status(200).json(medicos);

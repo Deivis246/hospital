@@ -21,9 +21,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch agenda and jornadas for the doctor
+    // Fetch agenda and jornadas for doctor usando la estructura correcta
     const agendas = await query<any[]>(
-      'SELECT agen_id, agen_fech_inic, agen_fech_fina, agen_dura_cita FROM agenda WHERE medi_id = ?',
+      `SELECT agen_id, agen_fech_inic, agen_fech_fina, agen_dura_cita 
+       FROM agenda 
+       WHERE medi_id = ? AND stat_agen_id = 1`,
       [medi_id]
     );
 
