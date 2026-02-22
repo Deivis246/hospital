@@ -2,30 +2,41 @@
 import React, { useState } from 'react';
 import { UserRole } from '../types.ts';
 import { Hospital } from 'lucide-react';
-import { MOCK_PERSONAS } from '../constants.ts';
 
 interface LoginProps {
-  onLogin: (role: UserRole) => void;
+  onLogin: (userData: any) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [idNumber, setIdNumber] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handlePatientLogin = (e: React.FormEvent) => {
+  const handlePatientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
     
-    const person = MOCK_PERSONAS.find(p => p.cedula === idNumber && p.fecha_nacimiento === birthDate);
-    
-    if (person) {
-      if (idNumber === 'admin') {
-        onLogin(UserRole.ADMIN);
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ci: idNumber, birthDate })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        onLogin(data);
       } else {
-        onLogin(UserRole.PATIENT);
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Credenciales incorrectas. Intente con el ejemplo de la nota.');
+        setError(errorMsg);
       }
-    } else {
-      setError('Credenciales incorrectas. Intente con el ejemplo de la nota.');
+    } catch (err) {
+      setError('Error al conectar con el servidor.');
+    } finally {
+      setLoading(false);
     }
   };
 

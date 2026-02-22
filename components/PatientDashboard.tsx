@@ -13,10 +13,14 @@ import {
   isSameMonth, 
   addMonths, 
   subMonths,
-  parseISO
+  parseISO,
+  addDays,
+  isBefore,
+  differenceInMinutes,
+  parse
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Search } from 'lucide-react';
 
 interface PatientDashboardProps {
   slots: any[];
@@ -33,11 +37,23 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [specialtySearch, setSpecialtySearch] = useState('');
+  const [timeGapError, setTimeGapError] = useState<string | null>(null);
+
+  const filteredEspecialidades = ESPECIALIDADES.filter(e => 
+    e.nombre.toLowerCase().includes(specialtySearch.toLowerCase())
+  );
 
   const filteredDoctors = MOCK_MEDICOS.filter(dr => dr.especialidad_id === selectedEspecialidadId);
   
-  // Slots for the selected doctor
-  const doctorSlots = slots.filter(s => s.doctorId === selectedMedicoId && !s.isBooked);
+  const minDate = addDays(new Date(), 30);
+
+  // Slots for the selected doctor, filtered by 30-day restriction
+  const doctorSlots = slots.filter(s => 
+    s.doctorId === selectedMedicoId && 
+    !s.isBooked &&
+    !isBefore(parseISO(s.date), minDate)
+  );
   
   // Days that have at least one slot for the selected doctor
   const availableDays = doctorSlots.map(s => parseISO(s.date));
@@ -64,6 +80,36 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
     setSelectedDate(null);
     setSelectedSlot(null);
     setShowConfirmation(false);
+    setSpecialtySearch('');
+    setTimeGapError(null);
+  };
+
+  const checkTimeGap = (slot: any) => {
+    if (!slot || !selectedEspecialidadId) return true;
+    
+    const newDateTime = parse(`${slot.date} ${slot.time}`, 'yyyy-MM-dd HH:mm', new Date());
+    
+    for (const app of appointments) {
+      // Skip if it's the same specialty (already handled by hasAppointmentInSpecialty)
+      if (app.especialidad_id === selectedEspecialidadId) continue;
+      
+      const appDateTime = parse(`${app.date} ${app.time}`, 'yyyy-MM-dd HH:mm', new Date());
+      const diffMinutes = Math.abs(differenceInMinutes(newDateTime, appDateTime));
+      
+      if (diffMinutes < 120) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleSlotSelection = (slot: any) => {
+    setSelectedSlot(slot);
+    if (!checkTimeGap(slot)) {
+      setTimeGapError('Esta cita debe estar al menos 2 horas antes o después de tus otras citas en diferentes especialidades.');
+    } else {
+      setTimeGapError(null);
+    }
   };
 
   const renderCalendar = () => {
@@ -266,16 +312,32 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             {/* Step 1: Specialty */}
             <div className="lg:col-span-3 space-y-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">1. Especialidad</h3>
-              <div className="grid grid-cols-1 gap-2">
-                {ESPECIALIDADES.map(e => (
-                  <button 
-                    key={e.id} 
-                    onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); }} 
-                    className={`w-full p-4 text-left rounded-xl border-2 transition-all font-medium ${selectedEspecialidadId === e.id ? 'bg-[#0056b3] text-white border-[#0056b3] shadow-lg' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50 text-gray-700'}`}
-                  >
-                    {e.nombre}
-                  </button>
-                ))}
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="text"
+                  placeholder="Buscar especialidad..."
+                  value={specialtySearch}
+                  onChange={(e) => setSpecialtySearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {filteredEspecialidades.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">No se encontraron especialidades.</p>
+                ) : (
+                  filteredEspecialidades.map(e => (
+                    <button 
+                      key={e.id} 
+                      onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); setTimeGapError(null); }} 
+                      className={`w-full p-4 text-left rounded-xl border-2 transition-all font-medium ${selectedEspecialidadId === e.id ? 'bg-[#0056b3] text-white border-[#0056b3] shadow-lg' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50 text-gray-700'}`}
+                    >
+                      {e.nombre}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -328,13 +390,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                       </div>
                       
                       {availableTimeSlots.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">No hay horarios disponibles para este día.</p>
+                        <p className="text-sm text-gray-400 italic">No hay horarios disponibles para este día (recuerda que solo puedes agendar con 30 días de anticipación).</p>
                       ) : (
                         <div className="grid grid-cols-2 gap-2">
                           {availableTimeSlots.map(slot => (
                             <button 
                               key={slot.id} 
-                              onClick={() => setSelectedSlot(slot)} 
+                              onClick={() => handleSlotSelection(slot)} 
                               className={`p-3 text-sm font-bold border rounded-xl transition-all ${selectedSlot?.id === slot.id ? 'bg-[#0056b3] text-white border-[#0056b3]' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'}`}
                             >
                               {slot.time}
@@ -358,34 +420,43 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex items-center gap-2 text-gray-800 font-bold">
-                      <AlertCircle size={18} className="text-amber-500" />
-                      <span>Exámenes Requeridos</span>
-                    </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Para su cita de <span className="font-bold text-[#0056b3]">{selectedEspecialidad?.nombre}</span>, debe realizarse los siguientes exámenes previos:
-                    </p>
-                    <ul className="space-y-2">
-                      {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                          <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                          <span>{exam}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2">
-                      <Info size={16} className="text-[#0056b3] mt-0.5 shrink-0" />
-                      <p className="text-xs text-blue-800">
-                        Por favor, traiga los resultados impresos el día de su cita.
-                      </p>
-                    </div>
-                    
-                    <button 
-                      onClick={() => setShowConfirmation(true)}
-                      className="w-full py-4 bg-[#0056b3] hover:bg-[#004494] text-white rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      Aceptar y Continuar
-                    </button>
+                    {timeGapError ? (
+                      <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
+                        <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                        <p className="text-sm text-red-700 font-medium">{timeGapError}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 text-gray-800 font-bold">
+                          <AlertCircle size={18} className="text-amber-500" />
+                          <span>Exámenes Requeridos</span>
+                        </div>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          Para su cita de <span className="font-bold text-[#0056b3]">{selectedEspecialidad?.nombre}</span>, debe realizarse los siguientes exámenes previos:
+                        </p>
+                        <ul className="space-y-2">
+                          {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                              <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                              <span>{exam}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2">
+                          <Info size={16} className="text-[#0056b3] mt-0.5 shrink-0" />
+                          <p className="text-xs text-blue-800">
+                            Por favor, traiga los resultados impresos el día de su cita.
+                          </p>
+                        </div>
+                        
+                        <button 
+                          onClick={() => setShowConfirmation(true)}
+                          className="w-full py-4 bg-[#0056b3] hover:bg-[#004494] text-white rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          Aceptar y Continuar
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
