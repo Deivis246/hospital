@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Especialidad, Medico, Appointment } from '../types.ts';
-import { SPECIALTY_EXAMS } from '../constants.ts';
+import { SPECIALTY_EXAMS, ESPECIALIDADES, MOCK_MEDICOS } from '../constants.ts';
 import { 
   format, 
   startOfMonth, 
@@ -41,33 +41,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   const [fetchingData, setFetchingData] = useState(false);
 
   useEffect(() => {
-    const fetchEspecialidades = async () => {
-      try {
-        const res = await fetch('/api/especialidades');
-        const data = await res.json();
-        setEspecialidades(data);
-      } catch (err) {
-        console.error('Error fetching especialidades:', err);
-      }
-    };
-    fetchEspecialidades();
+    setEspecialidades(ESPECIALIDADES);
   }, []);
 
   useEffect(() => {
     if (selectedEspecialidadId) {
-      const fetchMedicos = async () => {
-        setFetchingData(true);
-        try {
-          const res = await fetch(`/api/medicos?espe_id=${selectedEspecialidadId}`);
-          const data = await res.json();
-          setMedicos(data);
-        } catch (err) {
-          console.error('Error fetching medicos:', err);
-        } finally {
-          setFetchingData(false);
-        }
-      };
-      fetchMedicos();
+      setFetchingData(true);
+      // Simulate API delay
+      setTimeout(() => {
+        const filteredMedicos = MOCK_MEDICOS.filter(m => m.especialidad_id === selectedEspecialidadId);
+        setMedicos(filteredMedicos);
+        setFetchingData(false);
+      }, 300);
     } else {
       setMedicos([]);
     }

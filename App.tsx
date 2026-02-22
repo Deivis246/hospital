@@ -4,6 +4,7 @@ import { UserRole, Appointment, Especialidad, Medico, Agenda, Jornada } from './
 import Login from './components/Login.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
 import PatientDashboard from './components/PatientDashboard.tsx';
+import { MOCK_AGENDAS, MOCK_JORNADAS } from './constants.ts';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -26,13 +27,15 @@ const App: React.FC = () => {
   const fetchSlotsForDoctor = async (medico_id: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/agenda?medi_id=${medico_id}`);
-      const agendas = await response.json();
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const doctorAgendas = MOCK_AGENDAS.filter(a => a.medico_id === medico_id);
       
       const generatedSlots: any[] = [];
-      agendas.forEach((agenda: any) => {
-        const startDate = new Date(agenda.agen_fech_inic);
-        const endDate = new Date(agenda.agen_fech_fina);
+      doctorAgendas.forEach((agenda) => {
+        const startDate = new Date(agenda.fecha_inicio);
+        const endDate = new Date(agenda.fecha_fin);
         const demoEndDate = new Date();
         demoEndDate.setDate(demoEndDate.getDate() + 30);
         
@@ -40,12 +43,18 @@ const App: React.FC = () => {
         if (current < startDate) current = new Date(startDate);
         
         while (current <= endDate && current <= demoEndDate) {
-          const dayOfWeek = (current.getDay() + 6) % 7;
-          const dayJornadas = agenda.jornadas.filter((j: any) => j.dia_id === dayOfWeek);
+          const dayOfWeek = (current.getDay() + 6) % 7; // Adjust if necessary, 0=Monday in some systems, but Date.getDay() 0=Sunday.
+          // In constants.ts, let's assume 0=Monday to match the previous logic if it was using that.
+          // Wait, previous logic: const dayOfWeek = (current.getDay() + 6) % 7;
+          // If current.getDay() is 0 (Sunday), (0+6)%7 = 6.
+          // If current.getDay() is 1 (Monday), (1+6)%7 = 0.
+          // So 0=Monday, 6=Sunday.
           
-          dayJornadas.forEach((jornada: any) => {
-            const [startH, startM] = jornada.jorn_hora_inic.split(':').map(Number);
-            const [endH, endM] = jornada.jorn_hora_fina.split(':').map(Number);
+          const dayJornadas = MOCK_JORNADAS.filter(j => j.agenda_id === agenda.id && j.dia_semana === dayOfWeek);
+          
+          dayJornadas.forEach((jornada) => {
+            const [startH, startM] = jornada.hora_inicio.split(':').map(Number);
+            const [endH, endM] = jornada.hora_fin.split(':').map(Number);
             
             let slotTime = new Date(current);
             slotTime.setHours(startH, startM, 0, 0);
@@ -61,7 +70,7 @@ const App: React.FC = () => {
                 time: slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
                 isBooked: false
               });
-              slotTime.setMinutes(slotTime.getMinutes() + agenda.agen_dura_cita);
+              slotTime.setMinutes(slotTime.getMinutes() + agenda.duracion_cita);
             }
           });
           current.setDate(current.getDate() + 1);

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { UserRole } from '../types.ts';
 import { Hospital } from 'lucide-react';
+import { MOCK_PERSONAS } from '../constants.ts';
 
 interface LoginProps {
   onLogin: (userData: any) => void;
@@ -19,22 +20,24 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ci: idNumber, birthDate })
-      });
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      const data = await response.json();
+      const user = MOCK_PERSONAS.find(p => p.cedula === idNumber && p.fecha_nacimiento === birthDate);
       
-      if (response.ok) {
-        onLogin(data);
+      if (user) {
+        onLogin({
+          id: user.id,
+          nombre: user.nombre,
+          cedula: user.cedula,
+          fecha_nacimiento: user.fecha_nacimiento,
+          role: user.cedula === 'admin' ? UserRole.ADMIN : UserRole.PATIENT
+        });
       } else {
-        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Credenciales incorrectas. Intente con el ejemplo de la nota.');
-        setError(errorMsg);
+        setError('Credenciales incorrectas. Intente con el ejemplo de la nota.');
       }
     } catch (err) {
-      setError('Error al conectar con el servidor.');
+      setError('Error al iniciar sesión.');
     } finally {
       setLoading(false);
     }
