@@ -25,11 +25,11 @@ export const MOCK_PERSONAS: Persona[] = [
 ];
 
 export const MOCK_AGENDAS: Agenda[] = [
-  { id: 'a1', medico_id: 'dr1', fecha_inicio: '2025-01-01', fecha_fin: '2025-12-31', duracion_cita: 30 },
-  { id: 'a2', medico_id: 'dr2', fecha_inicio: '2025-01-01', fecha_fin: '2025-12-31', duracion_cita: 20 },
-  { id: 'a3', medico_id: 'dr3', fecha_inicio: '2025-01-01', fecha_fin: '2025-12-31', duracion_cita: 45 },
-  { id: 'a4', medico_id: 'dr4', fecha_inicio: '2025-01-01', fecha_fin: '2025-12-31', duracion_cita: 30 },
-  { id: 'a5', medico_id: 'dr5', fecha_inicio: '2025-01-01', fecha_fin: '2025-12-31', duracion_cita: 15 },
+  { id: 'a1', medico_id: 'dr1', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31', duracion_cita: 30 },
+  { id: 'a2', medico_id: 'dr2', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31', duracion_cita: 20 },
+  { id: 'a3', medico_id: 'dr3', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31', duracion_cita: 45 },
+  { id: 'a4', medico_id: 'dr4', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31', duracion_cita: 30 },
+  { id: 'a5', medico_id: 'dr5', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31', duracion_cita: 15 },
 ];
 
 export const MOCK_JORNADAS: Jornada[] = [
