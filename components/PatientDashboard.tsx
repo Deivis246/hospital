@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Especialidad, Medico, Appointment } from '../types.ts';
-import { SPECIALTY_EXAMS } from '../constants.ts';
+import { ESPECIALIDADES, MOCK_MEDICOS, SPECIALTY_EXAMS } from '../constants.ts';
 import { 
   format, 
   startOfMonth, 
@@ -16,18 +16,16 @@ import {
   parseISO
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 interface PatientDashboardProps {
   slots: any[];
   appointments: Appointment[];
   onBook: (slotId: string, medico_id: string, especialidad_id: number) => boolean;
   onCancel: (appointmentId: string) => void;
-  onDoctorSelect: (medico_id: string) => void;
-  loading?: boolean;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel, onDoctorSelect, loading }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'book'>('view');
   const [selectedEspecialidadId, setSelectedEspecialidadId] = useState<number | null>(null);
   const [selectedMedicoId, setSelectedMedicoId] = useState<string>('');
@@ -35,51 +33,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  
-  const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
-  const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [fetchingData, setFetchingData] = useState(false);
 
-  useEffect(() => {
-    const fetchEspecialidades = async () => {
-      try {
-        const res = await fetch('/api/especialidades');
-        const data = await res.json();
-        setEspecialidades(data);
-      } catch (err) {
-        console.error('Error fetching especialidades:', err);
-      }
-    };
-    fetchEspecialidades();
-  }, []);
-
-  useEffect(() => {
-    if (selectedEspecialidadId) {
-      const fetchMedicos = async () => {
-        setFetchingData(true);
-        try {
-          const res = await fetch(`/api/medicos?espe_id=${selectedEspecialidadId}`);
-          const data = await res.json();
-          setMedicos(data);
-        } catch (err) {
-          console.error('Error fetching medicos:', err);
-        } finally {
-          setFetchingData(false);
-        }
-      };
-      fetchMedicos();
-    } else {
-      setMedicos([]);
-    }
-  }, [selectedEspecialidadId]);
-
-  useEffect(() => {
-    if (selectedMedicoId) {
-      onDoctorSelect(selectedMedicoId);
-    }
-  }, [selectedMedicoId]);
-
-  const filteredDoctors = medicos;
+  const filteredDoctors = MOCK_MEDICOS.filter(dr => dr.especialidad_id === selectedEspecialidadId);
   
   // Slots for the selected doctor
   const doctorSlots = slots.filter(s => s.doctorId === selectedMedicoId && !s.isBooked);
@@ -202,8 +157,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
     );
   };
 
-  const selectedMedico = medicos.find(d => d.id === selectedMedicoId);
-  const selectedEspecialidad = especialidades.find(e => e.id === selectedEspecialidadId);
+  const selectedMedico = MOCK_MEDICOS.find(d => d.id === selectedMedicoId);
+  const selectedEspecialidad = ESPECIALIDADES.find(e => e.id === selectedEspecialidadId);
 
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
 
@@ -237,8 +192,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               <div key={app.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-bold text-slate-800 text-lg">{medicos.find(d => d.id === app.medico_id)?.nombre || 'Médico'}</h4>
-                    <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{especialidades.find(e => e.id === app.especialidad_id)?.nombre || 'Especialidad'}</p>
+                    <h4 className="font-bold text-slate-800 text-lg">{MOCK_MEDICOS.find(d => d.id === app.medico_id)?.nombre}</h4>
+                    <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{ESPECIALIDADES.find(e => e.id === app.especialidad_id)?.nombre}</p>
                   </div>
                   <div className="bg-blue-50 p-2 rounded-lg">
                     <User size={20} className="text-[#0056b3]" />
@@ -279,7 +234,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             </div>
             <div className="p-8 space-y-6">
               <p className="text-gray-600 text-center text-lg">
-                ¿Está seguro de que desea cancelar su cita de <span className="font-bold text-red-600">{especialidades.find(e => e.id === appointmentToCancel.especialidad_id)?.nombre}</span>?
+                ¿Está seguro de que desea cancelar su cita de <span className="font-bold text-red-600">{ESPECIALIDADES.find(e => e.id === appointmentToCancel.especialidad_id)?.nombre}</span>?
               </p>
               
               <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-500">
@@ -311,8 +266,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             {/* Step 1: Specialty */}
             <div className="lg:col-span-3 space-y-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">1. Especialidad</h3>
-              <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {especialidades.map(e => (
+              <div className="grid grid-cols-1 gap-2">
+                {ESPECIALIDADES.map(e => (
                   <button 
                     key={e.id} 
                     onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); }} 
@@ -331,36 +286,25 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                 <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                   <p className="text-gray-400 text-sm">Selecciona una especialidad primero.</p>
                 </div>
-              ) : fetchingData ? (
-                <div className="p-8 text-center flex flex-col items-center gap-2">
-                  <Loader2 className="animate-spin text-[#0056b3]" />
-                  <p className="text-gray-400 text-sm">Cargando médicos...</p>
-                </div>
               ) : hasAppointmentInSpecialty ? (
                 <div className="p-8 text-center bg-amber-50 rounded-3xl border border-amber-100">
                   <p className="text-amber-700 text-sm font-medium">Ya tienes una cita programada en esta especialidad.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredDoctors.length === 0 ? (
-                    <p className="text-center text-gray-400 text-sm py-8">No hay médicos disponibles para esta especialidad.</p>
-                  ) : (
-                    filteredDoctors.map(dr => (
-                      <button 
-                        key={dr.id} 
-                        onClick={() => { setSelectedMedicoId(dr.id); setSelectedDate(null); setSelectedSlot(null); }} 
-                        className={`w-full p-4 border-2 rounded-2xl flex items-center gap-4 transition-all ${selectedMedicoId === dr.id ? 'border-[#0056b3] bg-blue-50 shadow-md' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50'}`}
-                      >
-                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-[#0056b3] font-bold border-2 border-white shadow-sm">
-                          {dr.nombre.charAt(0)}
-                        </div>
-                        <div className="text-left">
-                          <p className="font-bold text-gray-800">{dr.nombre}</p>
-                          <p className="text-xs text-gray-500">Disponible</p>
-                        </div>
-                      </button>
-                    ))
-                  )}
+                  {filteredDoctors.map(dr => (
+                    <button 
+                      key={dr.id} 
+                      onClick={() => { setSelectedMedicoId(dr.id); setSelectedDate(null); setSelectedSlot(null); }} 
+                      className={`w-full p-4 border-2 rounded-2xl flex items-center gap-4 transition-all ${selectedMedicoId === dr.id ? 'border-[#0056b3] bg-blue-50 shadow-md' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50'}`}
+                    >
+                      <img src={dr.image} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
+                      <div className="text-left">
+                        <p className="font-bold text-gray-800">{dr.nombre}</p>
+                        <p className="text-xs text-gray-500">Disponible hoy</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -371,11 +315,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               {!selectedMedicoId ? (
                 <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                   <p className="text-gray-400 text-sm">Selecciona un médico para ver su agenda.</p>
-                </div>
-              ) : loading ? (
-                <div className="p-8 text-center flex flex-col items-center gap-2">
-                  <Loader2 className="animate-spin text-[#0056b3]" />
-                  <p className="text-gray-400 text-sm">Cargando agenda...</p>
                 </div>
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -427,19 +366,12 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                       Para su cita de <span className="font-bold text-[#0056b3]">{selectedEspecialidad?.nombre}</span>, debe realizarse los siguientes exámenes previos:
                     </p>
                     <ul className="space-y-2">
-                      {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre] ? (
-                        SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                            <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                            <span>{exam}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                      {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
                           <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                          <span>No se requieren exámenes previos específicos.</span>
+                          <span>{exam}</span>
                         </li>
-                      )}
+                      ))}
                     </ul>
                     <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2">
                       <Info size={16} className="text-[#0056b3] mt-0.5 shrink-0" />
@@ -485,9 +417,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               
               <div className="bg-gray-50 p-6 rounded-2xl space-y-4 border border-gray-100">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-[#0056b3] font-bold border-2 border-white shadow-sm">
-                    {selectedMedico.nombre.charAt(0)}
-                  </div>
+                  <img src={selectedMedico.image} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
                   <div>
                     <p className="font-bold text-gray-800">{selectedMedico.nombre}</p>
                     <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{selectedEspecialidad?.nombre}</p>
