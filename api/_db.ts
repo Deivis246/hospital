@@ -2,7 +2,6 @@ import mysql from 'mysql2/promise';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'mysql://zEc6ssgtcsBqAfJ.root:vmuf2WLzLFAimWe0@gateway01.us-east-1.prod.aws.tidbcloud.com:4000/test';
 
-// Use a global variable to store the pool so it can be reused across serverless invocations
 let pool: mysql.Pool;
 
 function getPool() {
@@ -11,7 +10,7 @@ function getPool() {
   console.log('Initializing MySQL connection pool...');
   try {
     const url = new URL(DATABASE_URL);
-    const config = {
+    pool = mysql.createPool({
       host: url.hostname,
       port: parseInt(url.port) || 3306,
       user: url.username,
@@ -22,13 +21,20 @@ function getPool() {
         rejectUnauthorized: false,
       },
       waitForConnections: true,
-      connectionLimit: 1, // Low limit for serverless
+      connectionLimit: 1,
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,
-    };
+    });
     
-    pool = mysql.createPool(config);
+    // Test the connection asynchronously
+    pool.getConnection().then(conn => {
+      console.log('Successfully connected to MySQL');
+      conn.release();
+    }).catch(err => {
+      console.error('Failed to connect to MySQL during init:', err.message);
+    });
+
     console.log('MySQL pool created successfully');
     return pool;
   } catch (err) {
@@ -44,6 +50,6 @@ export async function query<T>(sql: string, params?: any[]): Promise<T> {
     return results as T;
   } catch (err: any) {
     console.error('Database query error:', err);
-    throw new Error(`Database query failed: ${err.message}`);
+    throw err;
   }
 }

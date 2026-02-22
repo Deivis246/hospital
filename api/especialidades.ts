@@ -11,6 +11,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(especialidades);
   } catch (error: any) {
     console.error('Error fetching especialidades:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+      error: 'Error al obtener especialidades', 
+      details: error.message,
+      code: error.code 
+    });
   }
 }

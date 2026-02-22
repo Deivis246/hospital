@@ -30,7 +30,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (response.ok) {
         onLogin(data);
       } else {
-        setError(data.error || 'Credenciales incorrectas. Intente con el ejemplo de la nota.');
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Credenciales incorrectas. Intente con el ejemplo de la nota.');
+        setError(errorMsg);
       }
     } catch (err) {
       setError('Error al conectar con el servidor.');
