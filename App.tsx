@@ -1,23 +1,67 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserRole, TimeSlot, Appointment, Specialty } from './types.ts';
+import { UserRole, Appointment, Especialidad, Medico, Agenda, Jornada } from './types.ts';
 import Login from './components/Login.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
 import PatientDashboard from './components/PatientDashboard.tsx';
+import { MOCK_AGENDAS, MOCK_JORNADAS } from './constants.ts';
+
+// Helper to generate slots from Agenda and Jornada
+const generateSlotsFromSchedule = (agendas: Agenda[], jornadas: Jornada[]) => {
+  const slots: any[] = [];
+  
+  agendas.forEach(agenda => {
+    const doctorJornadas = jornadas.filter(j => j.agenda_id === agenda.id);
+    const startDate = new Date(agenda.fecha_inicio);
+    const endDate = new Date(agenda.fecha_fin);
+    
+    // Generate for next 30 days for demo purposes
+    const demoEndDate = new Date();
+    demoEndDate.setDate(demoEndDate.getDate() + 30);
+    
+    let current = new Date();
+    if (current < startDate) current = new Date(startDate);
+    
+    while (current <= endDate && current <= demoEndDate) {
+      const dayOfWeek = (current.getDay() + 6) % 7; // Map 0-6 (Sun-Sat) to 0-6 (Mon-Sun)
+      const dayJornadas = doctorJornadas.filter(j => j.dia_semana === dayOfWeek);
+      
+      dayJornadas.forEach(jornada => {
+        const [startH, startM] = jornada.hora_inicio.split(':').map(Number);
+        const [endH, endM] = jornada.hora_fin.split(':').map(Number);
+        
+        let slotTime = new Date(current);
+        slotTime.setHours(startH, startM, 0, 0);
+        
+        const endTime = new Date(current);
+        endTime.setHours(endH, endM, 0, 0);
+        
+        while (slotTime < endTime) {
+          slots.push({
+            id: `${agenda.medico_id}-${slotTime.getTime()}`,
+            doctorId: agenda.medico_id,
+            date: slotTime.toISOString().split('T')[0],
+            time: slotTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+            isBooked: false
+          });
+          slotTime.setMinutes(slotTime.getMinutes() + agenda.duracion_cita);
+        }
+      });
+      
+      current.setDate(current.getDate() + 1);
+    }
+  });
+  
+  return slots;
+};
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole | null>(null);
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [slots, setSlots] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
-    const initialSlots: TimeSlot[] = [
-      { id: 's1', doctorId: 'dr1', date: '2025-05-20', time: '09:00 AM', isBooked: false },
-      { id: 's2', doctorId: 'dr1', date: '2025-05-20', time: '10:30 AM', isBooked: false },
-      { id: 's3', doctorId: 'dr2', date: '2025-05-21', time: '02:00 PM', isBooked: false },
-      { id: 's4', doctorId: 'dr3', date: '2025-05-22', time: '11:15 AM', isBooked: false },
-      { id: 's5', doctorId: 'dr5', date: '2025-05-23', time: '08:45 AM', isBooked: false },
-    ];
+    const initialSlots = generateSlotsFromSchedule(MOCK_AGENDAS, MOCK_JORNADAS);
     setSlots(initialSlots);
   }, []);
 
@@ -29,8 +73,10 @@ const App: React.FC = () => {
     setRole(null);
   };
 
-  const addSlot = (slot: Omit<TimeSlot, 'id' | 'isBooked'>) => {
-    const newSlot: TimeSlot = {
+  const addSlot = (slot: any) => {
+    // En el nuevo esquema, esto implicaría añadir a Agenda/Jornada
+    // Por ahora lo mantenemos simple para la UI
+    const newSlot = {
       ...slot,
       id: Math.random().toString(36).substr(2, 9),
       isBooked: false
@@ -42,11 +88,11 @@ const App: React.FC = () => {
     setSlots(prev => prev.filter(s => s.id !== id));
   };
 
-  const bookAppointment = (slotId: string, doctorId: string, specialty: Specialty): boolean => {
-    const alreadyHasOne = appointments.some(app => app.specialty === specialty);
+  const bookAppointment = (slotId: string, medico_id: string, especialidad_id: number): boolean => {
+    const alreadyHasOne = appointments.some(app => app.especialidad_id === especialidad_id);
     
     if (alreadyHasOne) {
-      alert(`Lo sentimos, ya tienes una cita programada en la especialidad de ${specialty}.`);
+      alert(`Lo sentimos, ya tienes una cita programada en esta especialidad.`);
       return false;
     }
 
@@ -55,10 +101,9 @@ const App: React.FC = () => {
 
     const newAppointment: Appointment = {
       id: Math.random().toString(36).substr(2, 9),
-      patientId: 'patient1',
-      doctorId,
-      specialty,
-      slotId,
+      patientId: 'p1',
+      medico_id,
+      especialidad_id,
       date: slot.date,
       time: slot.time
     };
@@ -72,12 +117,14 @@ const App: React.FC = () => {
 
   const cancelAppointment = (appointmentId: string) => {
     const appointment = appointments.find(app => app.id === appointmentId);
-    if (!appointment) return;
-
-    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
-      setAppointments(prev => prev.filter(app => app.id !== appointmentId));
-      setSlots(prev => prev.map(s => s.id === appointment.slotId ? { ...s, isBooked: false } : s));
+    if (!appointment) {
+      console.error('Appointment not found:', appointmentId);
+      return;
     }
+
+    setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+    // Encontrar el slot correspondiente para liberarlo
+    setSlots(prev => prev.map(s => (s.date === appointment.date && s.time === appointment.time && s.doctorId === appointment.medico_id) ? { ...s, isBooked: false } : s));
   };
 
   return (
@@ -91,7 +138,7 @@ const App: React.FC = () => {
               <div className="flex justify-between h-16 items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-[#0056b3] rounded-lg flex items-center justify-center text-white font-bold">H</div>
-                  <span className="text-xl font-bold text-slate-800 tracking-tight">Hospital</span>
+                  <span className="text-xl font-bold text-slate-800 tracking-tight">HGDC</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right hidden sm:block">

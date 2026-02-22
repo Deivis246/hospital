@@ -1,23 +1,23 @@
 
 import React, { useState } from 'react';
-import { Doctor, TimeSlot } from '../types.ts';
-import { MOCK_DOCTORS } from '../constants.ts';
+import { Medico } from '../types.ts';
+import { MOCK_MEDICOS, ESPECIALIDADES } from '../constants.ts';
 
 interface AdminDashboardProps {
-  slots: TimeSlot[];
-  onAddSlot: (slot: Omit<TimeSlot, 'id' | 'isBooked'>) => void;
+  slots: any[];
+  onAddSlot: (slot: any) => void;
   onDeleteSlot: (id: string) => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ slots, onAddSlot, onDeleteSlot }) => {
-  const [selectedDoctorId, setSelectedDoctorId] = useState(MOCK_DOCTORS[0]?.id || '');
+  const [selectedMedicoId, setSelectedMedicoId] = useState(MOCK_MEDICOS[0]?.id || '');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!date || !time || !selectedDoctorId) return;
-    onAddSlot({ doctorId: selectedDoctorId, date, time });
+    if (!date || !time || !selectedMedicoId) return;
+    onAddSlot({ doctorId: selectedMedicoId, date, time });
     setTime('');
   };
 
@@ -34,12 +34,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ slots, onAddSlot, onDel
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Médico</label>
               <select 
-                value={selectedDoctorId}
-                onChange={(e) => setSelectedDoctorId(e.target.value)}
+                value={selectedMedicoId}
+                onChange={(e) => setSelectedMedicoId(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0056b3] outline-none"
               >
-                {MOCK_DOCTORS.map(dr => (
-                  <option key={dr.id} value={dr.id}>{dr.name} ({dr.specialty})</option>
+                {MOCK_MEDICOS.map(dr => (
+                  <option key={dr.id} value={dr.id}>{dr.nombre} ({ESPECIALIDADES.find(e => e.id === dr.especialidad_id)?.nombre})</option>
                 ))}
               </select>
             </div>
@@ -68,10 +68,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ slots, onAddSlot, onDel
             </thead>
             <tbody className="divide-y divide-slate-50">
               {slots.map(slot => {
-                const dr = MOCK_DOCTORS.find(d => d.id === slot.doctorId);
+                const dr = MOCK_MEDICOS.find(d => d.id === slot.doctorId);
                 return (
                   <tr key={slot.id}>
-                    <td className="py-4 font-medium text-slate-800">{dr?.name}</td>
+                    <td className="py-4 font-medium text-slate-800">{dr?.nombre}</td>
                     <td className="py-4 text-slate-600">{slot.date} {slot.time}</td>
                     <td className="py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${slot.isBooked ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
