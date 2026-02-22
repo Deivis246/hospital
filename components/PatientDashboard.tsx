@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Especialidad, Medico, Appointment } from '../types.ts';
-import { ESPECIALIDADES, MOCK_MEDICOS, SPECIALTY_EXAMS } from '../constants.ts';
+import { SPECIALTY_EXAMS } from '../constants.ts';
 import { 
   format, 
   startOfMonth, 
@@ -13,23 +13,21 @@ import {
   isSameMonth, 
   addMonths, 
   subMonths,
-  parseISO,
-  addDays,
-  isBefore,
-  differenceInMinutes,
-  parse
+  parseISO
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, Info, X, Loader2 } from 'lucide-react';
 
 interface PatientDashboardProps {
   slots: any[];
   appointments: Appointment[];
   onBook: (slotId: string, medico_id: string, especialidad_id: number) => boolean;
   onCancel: (appointmentId: string) => void;
+  onDoctorSelect: (medico_id: string) => void;
+  loading?: boolean;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments, onBook, onCancel, onDoctorSelect, loading }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'book'>('view');
   const [selectedEspecialidadId, setSelectedEspecialidadId] = useState<number | null>(null);
   const [selectedMedicoId, setSelectedMedicoId] = useState<string>('');
@@ -37,23 +35,54 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [specialtySearch, setSpecialtySearch] = useState('');
-  const [timeGapError, setTimeGapError] = useState<string | null>(null);
-
-  const filteredEspecialidades = ESPECIALIDADES.filter(e => 
-    e.nombre.toLowerCase().includes(specialtySearch.toLowerCase())
-  );
-
-  const filteredDoctors = MOCK_MEDICOS.filter(dr => dr.especialidad_id === selectedEspecialidadId);
   
-  const minDate = addDays(new Date(), 30);
+  const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
+  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [fetchingData, setFetchingData] = useState(false);
 
-  // Slots for the selected doctor, filtered by 30-day restriction
-  const doctorSlots = slots.filter(s => 
-    s.doctorId === selectedMedicoId && 
-    !s.isBooked &&
-    !isBefore(parseISO(s.date), minDate)
-  );
+  useEffect(() => {
+    const fetchEspecialidades = async () => {
+      try {
+        const res = await fetch('/api/especialidades');
+        const data = await res.json();
+        setEspecialidades(data);
+      } catch (err) {
+        console.error('Error fetching especialidades:', err);
+      }
+    };
+    fetchEspecialidades();
+  }, []);
+
+  useEffect(() => {
+    if (selectedEspecialidadId) {
+      const fetchMedicos = async () => {
+        setFetchingData(true);
+        try {
+          const res = await fetch(`/api/medicos?espe_id=${selectedEspecialidadId}`);
+          const data = await res.json();
+          setMedicos(data);
+        } catch (err) {
+          console.error('Error fetching medicos:', err);
+        } finally {
+          setFetchingData(false);
+        }
+      };
+      fetchMedicos();
+    } else {
+      setMedicos([]);
+    }
+  }, [selectedEspecialidadId]);
+
+  useEffect(() => {
+    if (selectedMedicoId) {
+      onDoctorSelect(selectedMedicoId);
+    }
+  }, [selectedMedicoId]);
+
+  const filteredDoctors = medicos;
+  
+  // Slots for the selected doctor
+  const doctorSlots = slots.filter(s => s.doctorId === selectedMedicoId && !s.isBooked);
   
   // Days that have at least one slot for the selected doctor
   const availableDays = doctorSlots.map(s => parseISO(s.date));
@@ -80,36 +109,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
     setSelectedDate(null);
     setSelectedSlot(null);
     setShowConfirmation(false);
-    setSpecialtySearch('');
-    setTimeGapError(null);
-  };
-
-  const checkTimeGap = (slot: any) => {
-    if (!slot || !selectedEspecialidadId) return true;
-    
-    const newDateTime = parse(`${slot.date} ${slot.time}`, 'yyyy-MM-dd HH:mm', new Date());
-    
-    for (const app of appointments) {
-      // Skip if it's the same specialty (already handled by hasAppointmentInSpecialty)
-      if (app.especialidad_id === selectedEspecialidadId) continue;
-      
-      const appDateTime = parse(`${app.date} ${app.time}`, 'yyyy-MM-dd HH:mm', new Date());
-      const diffMinutes = Math.abs(differenceInMinutes(newDateTime, appDateTime));
-      
-      if (diffMinutes < 120) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleSlotSelection = (slot: any) => {
-    setSelectedSlot(slot);
-    if (!checkTimeGap(slot)) {
-      setTimeGapError('Esta cita debe estar al menos 2 horas antes o después de tus otras citas en diferentes especialidades.');
-    } else {
-      setTimeGapError(null);
-    }
   };
 
   const renderCalendar = () => {
@@ -203,8 +202,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
     );
   };
 
-  const selectedMedico = MOCK_MEDICOS.find(d => d.id === selectedMedicoId);
-  const selectedEspecialidad = ESPECIALIDADES.find(e => e.id === selectedEspecialidadId);
+  const selectedMedico = medicos.find(d => d.id === selectedMedicoId);
+  const selectedEspecialidad = especialidades.find(e => e.id === selectedEspecialidadId);
 
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
 
@@ -238,8 +237,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               <div key={app.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-bold text-slate-800 text-lg">{MOCK_MEDICOS.find(d => d.id === app.medico_id)?.nombre}</h4>
-                    <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{ESPECIALIDADES.find(e => e.id === app.especialidad_id)?.nombre}</p>
+                    <h4 className="font-bold text-slate-800 text-lg">{medicos.find(d => d.id === app.medico_id)?.nombre || 'Médico'}</h4>
+                    <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{especialidades.find(e => e.id === app.especialidad_id)?.nombre || 'Especialidad'}</p>
                   </div>
                   <div className="bg-blue-50 p-2 rounded-lg">
                     <User size={20} className="text-[#0056b3]" />
@@ -280,7 +279,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             </div>
             <div className="p-8 space-y-6">
               <p className="text-gray-600 text-center text-lg">
-                ¿Está seguro de que desea cancelar su cita de <span className="font-bold text-red-600">{ESPECIALIDADES.find(e => e.id === appointmentToCancel.especialidad_id)?.nombre}</span>?
+                ¿Está seguro de que desea cancelar su cita de <span className="font-bold text-red-600">{especialidades.find(e => e.id === appointmentToCancel.especialidad_id)?.nombre}</span>?
               </p>
               
               <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-500">
@@ -312,32 +311,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
             {/* Step 1: Specialty */}
             <div className="lg:col-span-3 space-y-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">1. Especialidad</h3>
-              
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  type="text"
-                  placeholder="Buscar especialidad..."
-                  value={specialtySearch}
-                  onChange={(e) => setSpecialtySearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {filteredEspecialidades.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">No se encontraron especialidades.</p>
-                ) : (
-                  filteredEspecialidades.map(e => (
-                    <button 
-                      key={e.id} 
-                      onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); setTimeGapError(null); }} 
-                      className={`w-full p-4 text-left rounded-xl border-2 transition-all font-medium ${selectedEspecialidadId === e.id ? 'bg-[#0056b3] text-white border-[#0056b3] shadow-lg' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50 text-gray-700'}`}
-                    >
-                      {e.nombre}
-                    </button>
-                  ))
-                )}
+              <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                {especialidades.map(e => (
+                  <button 
+                    key={e.id} 
+                    onClick={() => { setSelectedEspecialidadId(e.id); setSelectedMedicoId(''); setSelectedDate(null); setSelectedSlot(null); }} 
+                    className={`w-full p-4 text-left rounded-xl border-2 transition-all font-medium ${selectedEspecialidadId === e.id ? 'bg-[#0056b3] text-white border-[#0056b3] shadow-lg' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50 text-gray-700'}`}
+                  >
+                    {e.nombre}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -348,25 +331,36 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                 <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                   <p className="text-gray-400 text-sm">Selecciona una especialidad primero.</p>
                 </div>
+              ) : fetchingData ? (
+                <div className="p-8 text-center flex flex-col items-center gap-2">
+                  <Loader2 className="animate-spin text-[#0056b3]" />
+                  <p className="text-gray-400 text-sm">Cargando médicos...</p>
+                </div>
               ) : hasAppointmentInSpecialty ? (
                 <div className="p-8 text-center bg-amber-50 rounded-3xl border border-amber-100">
                   <p className="text-amber-700 text-sm font-medium">Ya tienes una cita programada en esta especialidad.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredDoctors.map(dr => (
-                    <button 
-                      key={dr.id} 
-                      onClick={() => { setSelectedMedicoId(dr.id); setSelectedDate(null); setSelectedSlot(null); }} 
-                      className={`w-full p-4 border-2 rounded-2xl flex items-center gap-4 transition-all ${selectedMedicoId === dr.id ? 'border-[#0056b3] bg-blue-50 shadow-md' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50'}`}
-                    >
-                      <img src={dr.image} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
-                      <div className="text-left">
-                        <p className="font-bold text-gray-800">{dr.nombre}</p>
-                        <p className="text-xs text-gray-500">Disponible hoy</p>
-                      </div>
-                    </button>
-                  ))}
+                  {filteredDoctors.length === 0 ? (
+                    <p className="text-center text-gray-400 text-sm py-8">No hay médicos disponibles para esta especialidad.</p>
+                  ) : (
+                    filteredDoctors.map(dr => (
+                      <button 
+                        key={dr.id} 
+                        onClick={() => { setSelectedMedicoId(dr.id); setSelectedDate(null); setSelectedSlot(null); }} 
+                        className={`w-full p-4 border-2 rounded-2xl flex items-center gap-4 transition-all ${selectedMedicoId === dr.id ? 'border-[#0056b3] bg-blue-50 shadow-md' : 'bg-white border-transparent hover:border-blue-100 hover:bg-blue-50'}`}
+                      >
+                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-[#0056b3] font-bold border-2 border-white shadow-sm">
+                          {dr.nombre.charAt(0)}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-gray-800">{dr.nombre}</p>
+                          <p className="text-xs text-gray-500">Disponible</p>
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -377,6 +371,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               {!selectedMedicoId ? (
                 <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                   <p className="text-gray-400 text-sm">Selecciona un médico para ver su agenda.</p>
+                </div>
+              ) : loading ? (
+                <div className="p-8 text-center flex flex-col items-center gap-2">
+                  <Loader2 className="animate-spin text-[#0056b3]" />
+                  <p className="text-gray-400 text-sm">Cargando agenda...</p>
                 </div>
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -390,13 +389,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
                       </div>
                       
                       {availableTimeSlots.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">No hay horarios disponibles para este día (recuerda que solo puedes agendar con 30 días de anticipación).</p>
+                        <p className="text-sm text-gray-400 italic">No hay horarios disponibles para este día.</p>
                       ) : (
                         <div className="grid grid-cols-2 gap-2">
                           {availableTimeSlots.map(slot => (
                             <button 
                               key={slot.id} 
-                              onClick={() => handleSlotSelection(slot)} 
+                              onClick={() => setSelectedSlot(slot)} 
                               className={`p-3 text-sm font-bold border rounded-xl transition-all ${selectedSlot?.id === slot.id ? 'bg-[#0056b3] text-white border-[#0056b3]' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'}`}
                             >
                               {slot.time}
@@ -420,43 +419,41 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                    {timeGapError ? (
-                      <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
-                        <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                        <p className="text-sm text-red-700 font-medium">{timeGapError}</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 text-gray-800 font-bold">
-                          <AlertCircle size={18} className="text-amber-500" />
-                          <span>Exámenes Requeridos</span>
-                        </div>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          Para su cita de <span className="font-bold text-[#0056b3]">{selectedEspecialidad?.nombre}</span>, debe realizarse los siguientes exámenes previos:
-                        </p>
-                        <ul className="space-y-2">
-                          {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                              <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                              <span>{exam}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2">
-                          <Info size={16} className="text-[#0056b3] mt-0.5 shrink-0" />
-                          <p className="text-xs text-blue-800">
-                            Por favor, traiga los resultados impresos el día de su cita.
-                          </p>
-                        </div>
-                        
-                        <button 
-                          onClick={() => setShowConfirmation(true)}
-                          className="w-full py-4 bg-[#0056b3] hover:bg-[#004494] text-white rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          Aceptar y Continuar
-                        </button>
-                      </>
-                    )}
+                    <div className="flex items-center gap-2 text-gray-800 font-bold">
+                      <AlertCircle size={18} className="text-amber-500" />
+                      <span>Exámenes Requeridos</span>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      Para su cita de <span className="font-bold text-[#0056b3]">{selectedEspecialidad?.nombre}</span>, debe realizarse los siguientes exámenes previos:
+                    </p>
+                    <ul className="space-y-2">
+                      {selectedEspecialidad && SPECIALTY_EXAMS[selectedEspecialidad.nombre] ? (
+                        SPECIALTY_EXAMS[selectedEspecialidad.nombre].map((exam, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                            <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                            <span>{exam}</span>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                          <span>No se requieren exámenes previos específicos.</span>
+                        </li>
+                      )}
+                    </ul>
+                    <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2">
+                      <Info size={16} className="text-[#0056b3] mt-0.5 shrink-0" />
+                      <p className="text-xs text-blue-800">
+                        Por favor, traiga los resultados impresos el día de su cita.
+                      </p>
+                    </div>
+                    
+                    <button 
+                      onClick={() => setShowConfirmation(true)}
+                      className="w-full py-4 bg-[#0056b3] hover:bg-[#004494] text-white rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      Aceptar y Continuar
+                    </button>
                   </div>
                 </div>
               )}
@@ -488,7 +485,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ slots, appointments
               
               <div className="bg-gray-50 p-6 rounded-2xl space-y-4 border border-gray-100">
                 <div className="flex items-center gap-4">
-                  <img src={selectedMedico.image} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
+                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-[#0056b3] font-bold border-2 border-white shadow-sm">
+                    {selectedMedico.nombre.charAt(0)}
+                  </div>
                   <div>
                     <p className="font-bold text-gray-800">{selectedMedico.nombre}</p>
                     <p className="text-sm font-semibold text-[#0056b3] uppercase tracking-wider">{selectedEspecialidad?.nombre}</p>
