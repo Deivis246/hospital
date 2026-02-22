@@ -9,33 +9,18 @@ function getPool() {
 
   console.log('Initializing MySQL connection pool...');
   try {
-    const url = new URL(DATABASE_URL);
     pool = mysql.createPool({
-      host: url.hostname,
-      port: parseInt(url.port) || 3306,
-      user: url.username,
-      password: url.password,
-      database: url.pathname.substring(1) || 'test',
+      uri: DATABASE_URL,
       ssl: {
-        minVersion: 'TLSv1.2',
         rejectUnauthorized: false,
       },
       waitForConnections: true,
-      connectionLimit: 1,
+      connectionLimit: 10,
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,
+      connectTimeout: 5000,
     });
-    
-    // Test the connection asynchronously
-    pool.getConnection().then(conn => {
-      console.log('Successfully connected to MySQL');
-      conn.release();
-    }).catch(err => {
-      console.error('Failed to connect to MySQL during init:', err.message);
-    });
-
-    console.log('MySQL pool created successfully');
     return pool;
   } catch (err) {
     console.error('Error creating MySQL pool:', err);
@@ -49,7 +34,7 @@ export async function query<T>(sql: string, params?: any[]): Promise<T> {
     const [results] = await activePool.execute(sql, params);
     return results as T;
   } catch (err: any) {
-    console.error('Database query error:', err);
+    console.error('Database query error:', err.message);
     throw err;
   }
 }
